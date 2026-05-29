@@ -40,3 +40,8 @@ docs/reflact_overview.html
 docs/render_ablation_paper_tables.py
 docs/让*
 .gradio/
+
+# Generated and uploaded files
+*.json
+*.jsonl
+*.csv

@@ -99,7 +99,7 @@ def _hierarchical_merge(
         if verbose:
             print(
                 f"    [aggregate {label}] level={level}  "
-                f"{len(current)} patches → {len(batches)} batches "
+                f"{len(current)} patches -> {len(batches)} batches "
                 f"(parallel, batch_size={batch_size})"
             )
 
@@ -130,7 +130,7 @@ def _hierarchical_merge(
                         print(
                             f"      [aggregate {label}] level={level} "
                             f"batch [{batch_i}:{batch_i+len(batch_data)}] "
-                            f"→ 1 patch ({n_edits} {payload_label(update_mode)})"
+                            f"-> 1 patch ({n_edits} {payload_label(update_mode)})"
                         )
 
         current = [x for x in next_level if x is not None]
@@ -241,7 +241,7 @@ def merge_patches(
             if verbose:
                 print(
                     f"    [aggregate final] "
-                    f"{len(f_edits)}+{len(s_edits)} → {len(final[key])} {payload_label(update_mode)}"
+                    f"{len(f_edits)}+{len(s_edits)} -> {len(final[key])} {payload_label(update_mode)}"
                 )
             return final
     except Exception:  # noqa: BLE001

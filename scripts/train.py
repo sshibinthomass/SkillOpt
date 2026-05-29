@@ -49,6 +49,16 @@ def _register_builtins() -> None:
     except ImportError:
         pass
     try:
+        from train.adapter import CeramicCapacitorsAdapter
+        _ENV_REGISTRY["ceramic_capacitors"] = CeramicCapacitorsAdapter
+    except ImportError:
+        pass
+    try:
+        from skillopt.envs.generic_csv.adapter import GenericCSVAdapter
+        _ENV_REGISTRY["generic_csv"] = GenericCSVAdapter
+    except ImportError:
+        pass
+    try:
         from skillopt.envs.livemathematicianbench.adapter import LiveMathematicianBenchAdapter
         _ENV_REGISTRY["livemathematicianbench"] = LiveMathematicianBenchAdapter
     except ImportError:
@@ -369,6 +379,25 @@ def load_config(args: argparse.Namespace) -> dict:
         if flat.get(new_key) in (None, "") and flat.get(old_key) not in (None, ""):
             flat[new_key] = flat[old_key]
 
+    for key, env_var in [
+        ("azure_openai_endpoint", "AZURE_OPENAI_ENDPOINT"),
+        ("azure_openai_api_version", "AZURE_OPENAI_API_VERSION"),
+        ("azure_openai_api_key", "AZURE_OPENAI_API_KEY"),
+        ("azure_openai_auth_mode", "AZURE_OPENAI_AUTH_MODE"),
+        ("optimizer_azure_openai_endpoint", "OPTIMIZER_AZURE_OPENAI_ENDPOINT"),
+        ("optimizer_azure_openai_api_version", "OPTIMIZER_AZURE_OPENAI_API_VERSION"),
+        ("optimizer_azure_openai_api_key", "OPTIMIZER_AZURE_OPENAI_API_KEY"),
+        ("optimizer_azure_openai_auth_mode", "OPTIMIZER_AZURE_OPENAI_AUTH_MODE"),
+        ("target_azure_openai_endpoint", "TARGET_AZURE_OPENAI_ENDPOINT"),
+        ("target_azure_openai_api_version", "TARGET_AZURE_OPENAI_API_VERSION"),
+        ("target_azure_openai_api_key", "TARGET_AZURE_OPENAI_API_KEY"),
+        ("target_azure_openai_auth_mode", "TARGET_AZURE_OPENAI_AUTH_MODE"),
+    ]:
+        if env_var in os.environ:
+            flat[key] = os.environ[env_var]
+        elif flat.get(key) in (None, ""):
+            flat[key] = os.environ.get(env_var, "")
+
     explicit_backend = getattr(args, "backend", None)
     if explicit_backend is None:
         for option in args.cfg_options or []:
@@ -446,9 +475,29 @@ def load_config(args: argparse.Namespace) -> dict:
     return flat
 
 
+def load_env_file() -> None:
+    """Load variables from .env file into os.environ if present."""
+    import os
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("export "):
+                    line = line[7:]
+                if "=" in line:
+                    key, val = line.split("=", 1)
+                    key = key.strip()
+                    val = val.strip().strip("'").strip('"')
+                    os.environ[key] = val
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    load_env_file()
     args = parse_args()
     cfg = load_config(args)
 

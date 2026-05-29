@@ -41,6 +41,185 @@ def config_to_display(cfg: dict) -> str:
     """Pretty-print config for display."""
     return yaml.dump(cfg, default_flow_style=False, sort_keys=False)
 
+def process_uploaded_csv(file, dataset_name, input_col, target_col, split_ratio, progress=gr.Progress()):
+    import pandas as pd
+    import numpy as np
+    import json
+    
+    if file is None:
+        return "❌ Please upload a CSV file.", gr.update()
+        
+    progress(0.1, desc="Parsing input parameters...")
+    
+    if not dataset_name or not dataset_name.strip():
+        dataset_name = Path(file.name).stem
+        
+    dataset_name = "".join([c if c.isalnum() or c in ("_", "-") else "_" for c in dataset_name.strip()])
+    
+    progress(0.3, desc="Reading CSV dataset file...")
+    try:
+        df = pd.read_csv(file.name)
+    except Exception as e:
+        return f"❌ Error reading CSV file: {e}", gr.update()
+        
+    cols = [str(c).strip() for c in df.columns]
+    df.columns = cols
+    
+    # 1. Parse input columns
+    if isinstance(input_col, list):
+        input_cols = [str(ic).strip() for ic in input_col if ic]
+    else:
+        input_cols = [c.strip() for c in str(input_col).split(",") if c.strip()]
+        
+    if not input_cols:
+        return "❌ Please select or enter at least one input column.", gr.update()
+        
+    for ic in input_cols:
+        if ic not in cols:
+            return f"❌ Input column '{ic}' not found. Available columns: {cols}", gr.update()
+        
+    # 2. Parse target columns
+    if isinstance(target_col, list):
+        target_cols_raw = [str(tc).strip() for tc in target_col if tc]
+    else:
+        target_cols_raw = [c.strip() for c in str(target_col).split(",") if c.strip()]
+        
+    if "*" in target_cols_raw or any(tc.lower() in ("all", "all_others", "") for tc in target_cols_raw):
+        target_cols = [c for c in cols if c not in input_cols]
+    else:
+        target_cols = target_cols_raw
+        for tc in target_cols:
+            if tc not in cols:
+                return f"❌ Target column '{tc}' not found. Available columns: {cols}", gr.update()
+                
+    if not target_cols:
+        return "❌ Please select or enter at least one target column.", gr.update()
+        
+    try:
+        parts = [int(p.strip()) for p in split_ratio.split(":")]
+        if len(parts) != 3 or any(p <= 0 for p in parts):
+            raise ValueError
+    except Exception:
+        return f"❌ Invalid split ratio '{split_ratio}'. Use e.g. 3:1:1.", gr.update()
+        
+    items = []
+    for idx, row in df.iterrows():
+        # Build multi-field input representation
+        if len(input_cols) == 1:
+            val_input = str(row[input_cols[0]]).strip()
+        else:
+            val_input = "\n".join(f"{ic}: {str(row[ic]).strip()}" for ic in input_cols if not pd.isna(row[ic]))
+        
+        ground_truth = {}
+        for tc in target_cols:
+            val_target = row[tc]
+            if pd.isna(val_target):
+                val_target_str = ""
+            else:
+                val_target_str = str(val_target).strip()
+            try:
+                parsed_val = json.loads(val_target_str)
+                if isinstance(parsed_val, (dict, list)):
+                    ground_truth[tc] = parsed_val
+                else:
+                    ground_truth[tc] = val_target_str
+            except Exception:
+                ground_truth[tc] = val_target_str
+                
+        items.append({
+            "id": f"row_{idx+1:03d}",
+            "input": val_input,
+            "ground_truth": ground_truth
+        })
+        
+    np.random.seed(42)
+    shuffled = list(items)
+    np.random.shuffle(shuffled)
+    
+    total = len(shuffled)
+    total_ratio = sum(parts)
+    train_n = int(total * parts[0] / total_ratio)
+    val_n = int(total * parts[1] / total_ratio)
+    
+    train_items = shuffled[:train_n]
+    val_items = shuffled[train_n:train_n+val_n]
+    test_items = shuffled[train_n+val_n:]
+    
+    if not train_items and shuffled:
+        train_items = shuffled
+        
+    progress(0.6, desc="Splitting dataset deterministically...")
+    split_dir = PROJECT_ROOT / "data" / "uploaded_csv" / dataset_name
+    progress(0.8, desc="Writing JSON dataset splits to file...")
+    for name, split_items in [("train", train_items), ("val", val_items), ("test", test_items)]:
+        path = split_dir / name
+        path.mkdir(parents=True, exist_ok=True)
+        with open(path / "items.json", "w", encoding="utf-8") as f:
+            json.dump(split_items, f, ensure_ascii=False, indent=2)
+            
+    progress(0.9, desc="Generating configuration YAML file...")
+    config_data = {
+        "_base_": "../_base_/default.yaml",
+        "env": {
+            "name": "generic_csv",
+            "skill_init": "skillopt/envs/generic_csv/skills/initial.md",
+            "split_mode": "split_dir",
+            "split_dir": f"data/uploaded_csv/{dataset_name}"
+        }
+    }
+    
+    config_dir = PROJECT_ROOT / "configs" / "uploaded_csv"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / f"{dataset_name}.yaml"
+    with open(config_path, "w", encoding="utf-8") as f:
+        yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+        
+    relative_config_path = os.path.relpath(config_path, PROJECT_ROOT)
+    choices = discover_configs()
+    
+    progress(1.0, desc="Conversion complete!")
+    return (
+        f"✅ Dataset successfully split into data/uploaded_csv/{dataset_name}/\n✅ Config created at {relative_config_path}\nReady to train! Switch to 'Configure & Launch' tab to begin.",
+        gr.update(choices=choices, value=relative_config_path)
+    )
+
+def delete_config_file(config_path):
+    if not config_path:
+        return "❌ No config selected.", gr.update(), ""
+        
+    abs_path = PROJECT_ROOT / config_path
+    if not abs_path.exists():
+        return f"❌ Config file {config_path} not found.", gr.update(), ""
+        
+    try:
+        os.remove(abs_path)
+        
+        # Clean up data splits if it is an uploaded CSV config
+        if "uploaded_csv" in config_path:
+            dataset_name = abs_path.stem
+            split_dir = PROJECT_ROOT / "data" / "uploaded_csv" / dataset_name
+            if split_dir.exists() and split_dir.is_dir():
+                import shutil
+                shutil.rmtree(split_dir)
+                
+        choices = discover_configs()
+        new_val = choices[0] if choices else None
+        
+        preview = ""
+        if new_val:
+            try:
+                preview = config_to_display(load_config(new_val))
+            except Exception:
+                pass
+                
+        return (
+            f"🗑️ Successfully deleted config: {config_path}",
+            gr.update(choices=choices, value=new_val),
+            preview
+        )
+    except Exception as e:
+        return f"❌ Error deleting config: {e}", gr.update(), ""
+
 
 # ─── Training process management ────────────────────────────────────────────
 
@@ -179,10 +358,16 @@ class TrainingManager:
         with self._lock:
             if self.process and self.running:
                 try:
-                    # Kill entire process group (children included)
-                    os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
-                except (ProcessLookupError, OSError):
-                    self.process.terminate()
+                    if hasattr(os, "killpg"):
+                        # Kill entire process group (children included)
+                        os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                    else:
+                        self.process.terminate()
+                except Exception:
+                    try:
+                        self.process.terminate()
+                    except Exception:
+                        pass
                 self.process.wait(timeout=5)
                 self.running = False
                 self.stage = "Stopped"
@@ -261,7 +446,11 @@ class TrainingManager:
             height:500px;overflow-y:auto;background:#0f172a;padding:16px;
             border-radius:10px;font-family:'JetBrains Mono',Consolas,monospace;
             font-size:12.5px;line-height:1.6;border:1px solid #1e293b;
-            box-shadow:inset 0 2px 4px rgba(0,0,0,0.3);">{log_html}</div>'''
+            box-shadow:inset 0 2px 4px rgba(0,0,0,0.3);">{log_html}</div>
+            <script>
+                var el = document.getElementById("log-container");
+                if (el) {{ el.scrollTop = el.scrollHeight; }}
+            </script>'''
 
     def get_progress_html(self) -> str:
         """Render a visual progress bar."""
@@ -369,11 +558,14 @@ def build_ui():
             with gr.Tab("⚙️ Configure & Launch"):
                 with gr.Row():
                     with gr.Column(scale=1):
-                        config_dropdown = gr.Dropdown(
-                            choices=configs,
-                            label="Config File",
-                            value=configs[0] if configs else None,
-                        )
+                        with gr.Row():
+                            config_dropdown = gr.Dropdown(
+                                choices=configs,
+                                label="Config File",
+                                value=configs[0] if configs else None,
+                                scale=3
+                            )
+                            delete_config_btn = gr.Button("🗑️ Delete", variant="stop", scale=1)
                         config_preview = gr.Code(
                             label="Config Preview",
                             language="yaml",
@@ -418,6 +610,12 @@ def build_ui():
                     return ""
 
                 config_dropdown.change(on_config_change, config_dropdown, config_preview)
+                
+                delete_config_btn.click(
+                    delete_config_file,
+                    inputs=[config_dropdown],
+                    outputs=[status_text, config_dropdown, config_preview]
+                )
 
                 def on_launch(cfg_path, lr_val, sched, epochs, batch, workers,
                               slow_update, meta_skill, gate):
@@ -440,6 +638,64 @@ def build_ui():
                     status_text,
                 )
                 stop_btn.click(lambda: manager.stop(), outputs=status_text)
+
+            # ── Tab: CSV Upload & Training ───────────────────────────
+            with gr.Tab("📁 CSV Upload & Training"):
+                gr.Markdown("### Upload and Convert CSV Dataset")
+                gr.Markdown("Upload a `.csv` file. It will be parsed and split into `train/`, `val/`, and `test/` splits automatically.")
+                
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        csv_file = gr.File(label="Upload CSV File", file_types=[".csv"])
+                        csv_dataset_name = gr.Textbox(label="Dataset Name", placeholder="e.g. my_custom_dataset (auto-derived if blank)")
+                    
+                    with gr.Column(scale=1):
+                        csv_input_col = gr.Dropdown(label="Input Column Name(s)", choices=["input"], value=["input"], multiselect=True, allow_custom_value=True)
+                        csv_target_col = gr.Dropdown(label="Target/Ground Truth Column Name(s) (use '*' for all other columns)", choices=["*"], value=["*"], multiselect=True, allow_custom_value=True)
+                        csv_split_ratio = gr.Textbox(label="Split Ratio (Train:Val:Test)", value="3:1:1")
+                
+                csv_convert_btn = gr.Button("🚀 Convert & Prepare Config", variant="primary")
+                csv_status = gr.Textbox(label="Conversion Status", interactive=False)
+                
+                def on_csv_upload(file):
+                    if file is None:
+                        return "", gr.update(choices=[]), gr.update(choices=[])
+                    import pandas as pd
+                    try:
+                        df = pd.read_csv(file.name, nrows=0)
+                        cols = list(df.columns)
+                    except Exception:
+                        cols = []
+                    
+                    dataset_name = Path(file.name).stem
+                    
+                    default_input = ["input"]
+                    if cols:
+                        lower_cols = [c.lower() for c in cols]
+                        if "input" in lower_cols:
+                            default_input = [cols[lower_cols.index("input")]]
+                        elif "description" in lower_cols:
+                            default_input = [cols[lower_cols.index("description")]]
+                        elif "question" in lower_cols:
+                            default_input = [cols[lower_cols.index("question")]]
+                        else:
+                            default_input = [cols[0]]
+                            
+                    target_choices = ["*"] + cols
+                    
+                    return (
+                        dataset_name,
+                        gr.update(choices=cols, value=default_input),
+                        gr.update(choices=target_choices, value=["*"])
+                    )
+                
+                csv_file.change(on_csv_upload, csv_file, [csv_dataset_name, csv_input_col, csv_target_col])
+                
+                csv_convert_btn.click(
+                    process_uploaded_csv,
+                    inputs=[csv_file, csv_dataset_name, csv_input_col, csv_target_col, csv_split_ratio],
+                    outputs=[csv_status, config_dropdown]
+                )
 
             # ── Tab 2: Monitor ───────────────────────────────────────
             with gr.Tab("📊 Monitor"):
@@ -468,6 +724,17 @@ def build_ui():
                     return pipeline, progress, logs
 
                 refresh_btn.click(
+                    on_refresh,
+                    outputs=[pipeline_html, progress_html, log_html],
+                )
+                
+                app.load(
+                    on_refresh,
+                    inputs=None,
+                    outputs=[pipeline_html, progress_html, log_html],
+                )
+                timer = gr.Timer(2.0)
+                timer.tick(
                     on_refresh,
                     outputs=[pipeline_html, progress_html, log_html],
                 )

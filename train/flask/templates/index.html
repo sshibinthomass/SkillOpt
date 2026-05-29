@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillOpt: Dashboard & Monitoring Interface</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-brain glow-icon"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>SkillOpt</h1>
+                    <span>Agent Training Loop</span>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-btn active" data-tab="data-prep">
+                    <i class="fa-solid fa-file-csv"></i>
+                    <span>Dataset Prep</span>
+                </button>
+                <button class="nav-btn" data-tab="configure">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Configure & Train</span>
+                </button>
+                <button class="nav-btn" data-tab="monitor">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Live Monitor</span>
+                    <span class="status-dot-nav idle" id="nav-status-dot"></span>
+                </button>
+                <button class="nav-btn" data-tab="results">
+                    <i class="fa-solid fa-square-poll-vertical"></i>
+                    <span>Results Viewer</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="connection-status">
+                    <span class="status-indicator online"></span>
+                    <span>Server: Localhost:5000</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Header -->
+            <header class="main-header">
+                <div class="header-title-area">
+                    <h2 id="current-tab-title">Dataset Preparation & Viewer</h2>
+                    <p id="current-tab-desc">Parse CSV manufacturer descriptions into JSON format for agent training.</p>
+                </div>
+                <div class="header-actions">
+                    <div class="api-status-badge">
+                        <span>API Backend: </span><strong class="text-indigo">Active</strong>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Tabs -->
+            <div class="tab-content-container">
+                
+                <!-- TAB 1: DATA PREPARATION & VIEWER -->
+                <div class="tab-content active" id="tab-data-prep">
+                    <div class="grid-2col">
+                        <!-- Left Panel: CSV converter form -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-wand-magic-sparkles text-indigo"></i> Convert CSV to JSON Split</h3>
+                            </div>
+                            <div class="card-body">
+                                <form id="csv-convert-form">
+                                    <div class="form-group">
+                                        <label for="csv-file"><i class="fa-solid fa-file-upload"></i> Upload CSV Dataset File</label>
+                                        <div class="file-upload-wrapper">
+                                            <input type="file" id="csv-file" accept=".csv" required>
+                                            <div class="upload-drag-area">
+                                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                                <span class="upload-text">Click to choose or drag CSV file</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Dynamic column select panel (hidden until CSV parsed) -->
+                                    <div id="column-selection-panel" class="hidden mb-20">
+                                        <div class="form-group">
+                                            <label><i class="fa-solid fa-arrow-right-to-bracket text-indigo"></i> Select Input Column(s) (Description text)</label>
+                                            <div class="pill-container" id="input-pills-container">
+                                                <!-- Dynamic Pills -->
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label><i class="fa-solid fa-circle-check text-green"></i> Select Output Column(s) (Ground Truth data)</label>
+                                            <div class="pill-container" id="target-pills-container">
+                                                <!-- Dynamic Pills -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <input type="hidden" id="json-path" value="train/ceramic_capacitors.json">
+
+                                    <div class="grid-2col-nested">
+                                        <div class="form-group">
+                                            <label for="split-ratio"><i class="fa-solid fa-scissors"></i> Split Ratio</label>
+                                            <input type="text" id="split-ratio" value="6:2:2" placeholder="Train:Val:Test ratio">
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary btn-full-width" id="btn-convert-csv" disabled>
+                                        <i class="fa-solid fa-gears"></i> Select columns to convert
+                                    </button>
+                                </form>
+                                <div class="alert-box success hidden" id="csv-success-alert">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    <div class="alert-content">
+                                        <h4>Conversion Succeeded!</h4>
+                                        <p id="csv-success-msg"></p>
+                                    </div>
+                                </div>
+                                <div class="alert-box error hidden" id="csv-error-alert">
+                                    <i class="fa-solid fa-circle-xmark"></i>
+                                    <div class="alert-content">
+                                        <h4>Conversion Failed</h4>
+                                        <p id="csv-error-msg"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Dataset entries viewer -->
+                        <div class="glass-card flex-grow-card">
+                            <div class="card-header header-with-btn">
+                                <h3><i class="fa-solid fa-database text-green"></i> Dataset Preview</h3>
+                                <div class="header-btn-area">
+                                     <select id="dataset-preview-path" class="small-select">
+                                         <!-- Populated dynamically -->
+                                     </select>
+                                    <button class="btn btn-secondary btn-sm" id="btn-load-dataset">
+                                        <i class="fa-solid fa-arrows-rotate"></i> Load
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body scrollable-body no-padding">
+                                <div class="dataset-entries-table-wrapper">
+                                    <table class="data-table" id="dataset-preview-table">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 80px;">ID</th>
+                                                <th>Input Description</th>
+                                                <th>Ground Truth Parameters</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="dataset-preview-tbody">
+                                            <tr>
+                                                <td colspan="3" class="text-center text-muted">No dataset loaded. Specify path and click Load.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: CONFIGURE & LAUNCH -->
+                <div class="tab-content" id="tab-configure">
+                    <div class="glass-card">
+                        <div class="card-header header-with-btn">
+                            <h3><i class="fa-solid fa-sliders text-indigo"></i> Configure Hyperparameters & Launch Loop</h3>
+                            <div class="config-selector-area">
+                                <label for="active-config-path"><i class="fa-solid fa-file-lines text-muted"></i> Select Template Config:</label>
+                                <select id="active-config-path" class="small-select">
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <form id="training-config-form">
+                                <div class="config-sections-grid">
+                                    
+                                    <!-- SECTION A: MODEL BACKEND -->
+                                    <div class="config-group-panel">
+                                        <div class="panel-header">
+                                            <h4><i class="fa-solid fa-robot"></i> Model & LLM API Credentials</h4>
+                                        </div>
+                                        <div class="panel-body">
+                                            <div class="grid-2col-nested">
+                                                <div class="form-group">
+                                                    <label for="cfg-model-target">Target Model</label>
+                                                    <select id="cfg-model-target">
+                                                        <option value="gpt-5.4">gpt-5.4</option>
+                                                        <option value="gpt-5.5">gpt-5.5</option>
+                                                        <option value="gpt-4o">gpt-4o</option>
+                                                        <option value="gpt-4-turbo">gpt-4-turbo</option>
+                                                        <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
+                                                        <option value="claude-3-opus">claude-3-opus</option>
+                                                        <option value="qwen-max">qwen-max</option>
+                                                        <option value="qwen-plus">qwen-plus</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="cfg-model-optimizer">Optimizer Model</label>
+                                                    <select id="cfg-model-optimizer">
+                                                        <option value="gpt-5.4">gpt-5.4</option>
+                                                        <option value="gpt-5.5">gpt-5.5</option>
+                                                        <option value="gpt-4o">gpt-4o</option>
+                                                        <option value="gpt-4-turbo">gpt-4-turbo</option>
+                                                        <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
+                                                        <option value="claude-3-opus">claude-3-opus</option>
+                                                        <option value="qwen-max">qwen-max</option>
+                                                        <option value="qwen-plus">qwen-plus</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="cfg-model-backend">Model Backend</label>
+                                                <select id="cfg-model-backend">
+                                                    <option value="azure_openai">Azure OpenAI</option>
+                                                    <option value="openai_chat">OpenAI Chat</option>
+                                                    <option value="claude_chat">Anthropic Claude</option>
+                                                    <option value="qwen_chat">Qwen (vLLM)</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="cfg-model-endpoint">Azure Endpoint</label>
+                                                <input type="text" id="cfg-model-endpoint" placeholder="https://your-resource.openai.azure.com/">
+                                            </div>
+                                            <div class="grid-2col-nested">
+                                                <div class="form-group">
+                                                    <label for="cfg-model-api-key">API Key Override</label>
+                                                    <input type="password" id="cfg-model-api-key" placeholder="••••••••••••••••">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="cfg-model-api-version">API Version</label>
+                                                    <input type="text" id="cfg-model-api-version" placeholder="e.g. 2025-01-01-preview">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="cfg-model-reasoning">Target Reasoning Effort</label>
+                                                <select id="cfg-model-reasoning">
+                                                    <option value="">off (standard chat)</option>
+                                                    <option value="low">low</option>
+                                                    <option value="medium" selected>medium</option>
+                                                    <option value="high">high</option>
+                                                    <option value="max">max</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- SECTION B: REFLECTIVE TRAINING LOOP -->
+                                    <div class="config-group-panel">
+                                        <div class="panel-header">
+                                            <h4><i class="fa-solid fa-arrows-spin"></i> Reflective Loop Hyperparameters</h4>
+                                        </div>
+                                        <div class="panel-body">
+                                            <div class="grid-2col-nested">
+                                                <div class="form-group">
+                                                    <label for="cfg-train-epochs">Num Epochs</label>
+                                                    <input type="number" id="cfg-train-epochs" value="4" min="1" max="50">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="cfg-train-batch-size">Batch Size (Tasks/step)</label>
+                                                    <input type="number" id="cfg-train-batch-size" value="20" min="1" max="500">
+                                                </div>
+                                            </div>
+                                            <div class="grid-2col-nested">
+                                                <div class="form-group">
+                                                    <label for="cfg-train-accumulation">Grad Accumulation</label>
+                                                    <input type="number" id="cfg-train-accumulation" value="1" min="1">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="cfg-train-seed">Training Seed</label>
+                                                    <input type="number" id="cfg-train-seed" value="42">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="cfg-gradient-minibatch">Analyst Minibatch Size</label>
+                                                <input type="number" id="cfg-gradient-minibatch" value="4" min="1">
+                                                <small class="form-text">Failed items per reflection call.</small>
+                                            </div>
+                                            <div class="grid-2col-nested">
+                                                <div class="form-group">
+                                                    <label for="cfg-gradient-workers">Analyst Workers</label>
+                                                    <input type="number" id="cfg-gradient-workers" value="4" min="1">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="cfg-gradient-failure-only">Analyze Failures Only</label>
+                                                    <select id="cfg-gradient-failure-only">
+                                                        <option value="false">No (Analyze success + failure)</option>
+                                                        <option value="true" selected>Yes (Analyze failures only)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- SECTION C: OPTIMIZATION & SCHEDULER -->
+                                    <div class="config-group-panel">
+                                        <div class="panel-header">
+                                            <h4><i class="fa-solid fa-bolt"></i> Learning Rate & Weight Strategy</h4>
+                                        </div>
+                                        <div class="panel-body">
+                                            <div class="grid-2col-nested">
+                                                <div class="form-group">
+                                                    <label for="cfg-opt-lr">Learning Rate (Max edits/turn)</label>
+                                                    <input type="number" id="cfg-opt-lr" value="3" min="1" max="20">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="cfg-opt-scheduler">Learning Rate Scheduler</label>
+                                                    <select id="cfg-opt-scheduler">
+                                                        <option value="constant">constant</option>
+                                                        <option value="linear">linear</option>
+                                                        <option value="cosine" selected>cosine</option>
+                                                        <option value="autonomous">autonomous</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="cfg-opt-update-mode">Skill Update Mode</label>
+                                                <select id="cfg-opt-update-mode">
+                                                    <option value="patch" selected>patch (Add/Delete/Replace)</option>
+                                                    <option value="rewrite">rewrite (Suggest rewriting regions)</option>
+                                                    <option value="full_rewrite">full_rewrite (Rewrite completely)</option>
+                                                </select>
+                                            </div>
+                                            <div class="checkbox-form-group">
+                                                <input type="checkbox" id="cfg-opt-slow-update" checked>
+                                                <label for="cfg-opt-slow-update"><strong>Slow Update / Averaging</strong> (Runs skill weights text-averaging at epoch end)</label>
+                                            </div>
+                                            <div class="checkbox-form-group">
+                                                <input type="checkbox" id="cfg-opt-meta-skill" checked>
+                                                <label for="cfg-opt-meta-skill"><strong>Meta-Skill Updates</strong> (Runs meta-optimizer step over training trajectory)</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- SECTION D: EVALUATION & DATA -->
+                                    <div class="config-group-panel">
+                                        <div class="panel-header">
+                                            <h4><i class="fa-solid fa-circle-notch"></i> Validation & Env Configurations</h4>
+                                        </div>
+                                        <div class="panel-body">
+                                            <div class="checkbox-form-group">
+                                                <input type="checkbox" id="cfg-eval-gate" checked>
+                                                <label for="cfg-eval-gate"><strong>Strict Validation Gate</strong> (Backtracks skill edits if validation score decreases)</label>
+                                            </div>
+                                            <div class="grid-2col-nested">
+                                                <div class="form-group">
+                                                    <label for="cfg-eval-sel-num">Val Gate Size (sel_env_num)</label>
+                                                    <input type="number" id="cfg-eval-sel-num" value="15" min="1">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="cfg-eval-test-num">Test Subset Size</label>
+                                                    <input type="number" id="cfg-eval-test-num" value="15" min="1">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="cfg-env-name">Environment Name</label>
+                                                <select id="cfg-env-name">
+                                                    <!-- Populated dynamically -->
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="cfg-env-data-path">Dataset Path (JSON)</label>
+                                                <select id="cfg-env-data-path">
+                                                    <!-- Populated dynamically -->
+                                                </select>
+                                            </div>
+                                            <div class="grid-2col-nested">
+                                                <div class="form-group">
+                                                    <label for="cfg-env-workers">Rollout Parallel Workers</label>
+                                                    <input type="number" id="cfg-env-workers" value="8" min="1">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="cfg-env-init-skill">Initial Skill MD File</label>
+                                                    <select id="cfg-env-init-skill">
+                                                        <!-- Populated dynamically -->
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <div class="action-bar glass-panel">
+                                    <div class="action-status">
+                                        <span class="status-text-panel"><i class="fa-solid fa-circle-question text-muted"></i> Ready to run. Config will be written to D:\...\temp_config.yaml</span>
+                                    </div>
+                                    <div class="action-buttons">
+                                        <button type="button" class="btn btn-secondary" id="btn-reset-config">
+                                            <i class="fa-solid fa-arrow-rotate-left"></i> Reset Defaults
+                                        </button>
+                                        <button type="button" class="btn btn-danger hidden" id="btn-stop-training">
+                                            <i class="fa-solid fa-circle-stop"></i> Stop Training Run
+                                        </button>
+                                        <button type="submit" class="btn btn-primary" id="btn-launch-training">
+                                            <i class="fa-solid fa-circle-play"></i> Launch Reflective Loop
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: LIVE MONITOR -->
+                <div class="tab-content" id="tab-monitor">
+                    <!-- Progress Bar Panel -->
+                    <div class="glass-card mb-20" id="monitor-progress-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-line text-indigo"></i> Loop Progress Status</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="progress-details-area">
+                                <div class="progress-meta">
+                                    <span class="progress-badge" id="monitor-badge-status">Idle</span>
+                                    <span id="monitor-epoch-val">Epoch: —</span>
+                                    <span id="monitor-step-val">Step: —</span>
+                                </div>
+                                <span class="percent-text" id="monitor-percent-val">0.0%</span>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" id="monitor-progress-fill" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pipeline Phase Tracker -->
+                    <div class="glass-card mb-20">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-diagram-next text-green"></i> SkillOpt Active ReflACT Stage Flow</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="pipeline-container">
+                                <div class="pipeline-node" id="node-Rollout">
+                                    <div class="node-icon"><i class="fa-solid fa-bullseye"></i></div>
+                                    <span class="node-label">Rollout</span>
+                                    <span class="node-sub">Generate trajectories</span>
+                                </div>
+                                <div class="pipeline-connector" id="conn-Rollout"></div>
+
+                                <div class="pipeline-node" id="node-Reflect">
+                                    <div class="node-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+                                    <span class="node-label">Reflect</span>
+                                    <span class="node-sub">Analyze failures</span>
+                                </div>
+                                <div class="pipeline-connector" id="conn-Reflect"></div>
+
+                                <div class="pipeline-node" id="node-Aggregate">
+                                    <div class="node-icon"><i class="fa-solid fa-link"></i></div>
+                                    <span class="node-label">Aggregate</span>
+                                    <span class="node-sub">Merge patches</span>
+                                </div>
+                                <div class="pipeline-connector" id="conn-Aggregate"></div>
+
+                                <div class="pipeline-node" id="node-Select">
+                                    <div class="node-icon"><i class="fa-solid fa-scissors"></i></div>
+                                    <span class="node-label">Select</span>
+                                    <span class="node-sub">Prune proposals</span>
+                                </div>
+                                <div class="pipeline-connector" id="conn-Select"></div>
+
+                                <div class="pipeline-node" id="node-Update">
+                                    <div class="node-icon"><i class="fa-solid fa-pen-nib"></i></div>
+                                    <span class="node-label">Update</span>
+                                    <span class="node-sub">Apply patches</span>
+                                </div>
+                                <div class="pipeline-connector" id="conn-Update"></div>
+
+                                <div class="pipeline-node" id="node-Gate">
+                                    <div class="node-icon"><i class="fa-solid fa-traffic-light"></i></div>
+                                    <span class="node-label">Validation Gate</span>
+                                    <span class="node-sub">Check score improvement</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Console Logs Terminal -->
+                    <div class="glass-card">
+                        <div class="card-header header-with-btn">
+                            <h3><i class="fa-solid fa-terminal text-muted"></i> Training Log Stream</h3>
+                            <div class="terminal-actions">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="terminal-autoscroll" checked> Auto-Scroll
+                                </label>
+                                <button class="btn btn-secondary btn-sm" id="btn-clear-terminal">
+                                    <i class="fa-solid fa-trash-can"></i> Clear Terminal
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body terminal-body" id="log-terminal">
+                            <!-- Logs injected here -->
+                            <span class="text-muted">Terminal initialized. Awaiting training launch...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: RESULTS VIEWER -->
+                <div class="tab-content" id="tab-results">
+                    <div class="results-layout">
+                        <!-- Left Panel: Runs List -->
+                        <div class="glass-card run-list-card">
+                            <div class="card-header header-with-btn">
+                                <h3><i class="fa-solid fa-list-ul text-indigo"></i> Outputs Runs</h3>
+                                <button class="btn btn-secondary btn-sm" id="btn-refresh-results">
+                                    <i class="fa-solid fa-arrows-rotate"></i> Scan Folder
+                                </button>
+                            </div>
+                            <div class="card-body scrollable-body no-padding">
+                                <div class="run-list" id="runs-container">
+                                    <!-- Dynamic list of run items -->
+                                    <div class="text-center text-muted p-20">No output runs found. Try scanning outputs folder.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Run Details -->
+                        <div class="run-details-area">
+                            
+                            <!-- Detailed stats container (starts hidden until select) -->
+                            <div id="selected-run-container" class="hidden">
+                                
+                                <!-- Metrics Stats Row -->
+                                <div class="metrics-row">
+                                    <div class="metric-card">
+                                        <span class="metric-label">Baseline Score</span>
+                                        <span class="metric-val text-muted" id="stat-baseline">-</span>
+                                    </div>
+                                    <div class="metric-card highlight-metric">
+                                        <span class="metric-label">Best Selection Score</span>
+                                        <span class="metric-val text-green" id="stat-best">-</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">Final Test Score</span>
+                                        <span class="metric-val text-indigo" id="stat-test">-</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">Training Duration</span>
+                                        <span class="metric-val text-amber" id="stat-duration">-</span>
+                                    </div>
+                                </div>
+
+                                <!-- Tabs nested inside Run details -->
+                                <div class="detail-tabs-header">
+                                    <button class="detail-tab-btn active" data-detail-tab="run-overview">Overview & Steps</button>
+                                    <button class="detail-tab-btn" data-detail-tab="run-skill">Optimized Skill prompt</button>
+                                    <button class="detail-tab-btn" data-detail-tab="run-rollout">Discrepancies & Rollouts</button>
+                                </div>
+
+                                <!-- Detail Tab Content 1: Overview & Steps -->
+                                <div class="detail-tab-content active" id="detail-tab-run-overview">
+                                    <div class="glass-card mb-20">
+                                        <div class="card-header">
+                                            <h4>Run Settings & Metrics History</h4>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="info-grid mb-20">
+                                                <div><strong>Run ID:</strong> <span id="info-run-id">-</span></div>
+                                                <div><strong>Env Model:</strong> <span id="info-env-name">-</span></div>
+                                                <div><strong>Target LLM:</strong> <span id="info-target-model">-</span></div>
+                                                <div><strong>Optimizer LLM:</strong> <span id="info-opt-model">-</span></div>
+                                            </div>
+                                            
+                                            <!-- Steps table -->
+                                            <div class="dataset-entries-table-wrapper">
+                                                <table class="data-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Step</th>
+                                                            <th>Epoch</th>
+                                                            <th>Rollout Hard Acc</th>
+                                                            <th>Rollout Soft Acc</th>
+                                                            <th>Active Action</th>
+                                                            <th>Validation Score</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="run-steps-tbody">
+                                                        <!-- Injected dynamically -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Detail Tab Content 2: Final Skill prompt -->
+                                <div class="detail-tab-content" id="detail-tab-run-skill">
+                                    <div class="glass-card">
+                                        <div class="card-header header-with-btn">
+                                            <h4>Best Skill Prompt Document (best_skill.md)</h4>
+                                            <button class="btn btn-secondary btn-sm" id="btn-copy-skill"><i class="fa-solid fa-copy"></i> Copy Prompt</button>
+                                        </div>
+                                        <div class="card-body">
+                                            <pre class="prompt-viewer" id="prompt-viewer-content">
+<!-- Injected markdown best_skill -->
+                                            </pre>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Detail Tab Content 3: Rollouts Discrepancy Explorer -->
+                                <div class="detail-tab-content" id="detail-tab-run-rollout">
+                                    <div class="glass-card">
+                                        <div class="card-header header-with-btn">
+                                            <h4>Itemized Rollouts & Discrepancies</h4>
+                                            <div class="rollout-filter-area">
+                                                <label class="radio-inline">
+                                                    <input type="radio" name="rollout-filter" value="all" checked> All (<span id="count-rollout-all">0</span>)
+                                                </label>
+                                                <label class="radio-inline text-green">
+                                                    <input type="radio" name="rollout-filter" value="correct"> Correct (<span id="count-rollout-correct">0</span>)
+                                                </label>
+                                                <label class="radio-inline text-red">
+                                                    <input type="radio" name="rollout-filter" value="failed"> Failed (<span id="count-rollout-failed">0</span>)
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="card-body scrollable-body no-padding max-height-500">
+                                            <div class="rollout-explorer-list" id="rollout-items-container">
+                                                <!-- Rollout items populated dynamically -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- Placeholder when no run selected -->
+                            <div class="glass-card run-placeholder-card" id="run-details-placeholder">
+                                <div class="card-body text-center p-50">
+                                    <i class="fa-solid fa-square-poll-vertical placeholder-icon"></i>
+                                    <h3>Select an Output Run</h3>
+                                    <p class="text-muted">Choose an optimization experiment from the left list panel to view details, parameters, step evaluations, and prompts.</p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

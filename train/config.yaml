@@ -1,0 +1,36 @@
+_base_: ../configs/_base_/default.yaml
+
+model:
+  optimizer: gpt-5.4
+  target: gpt-5.4
+  reasoning_effort: medium
+
+train:
+  train_size: 0                     # 0 = derive dynamically from dataset split size
+  batch_size: 20                    # Train batch size per step
+  accumulation: 1
+
+gradient:
+  minibatch_size: 4
+  merge_batch_size: 4
+  analyst_workers: 4
+
+optimizer:
+  learning_rate: 3                  # Max edits per step (edit_budget)
+  skill_update_mode: patch
+
+evaluation:
+  use_gate: true                    # Strict validation gate
+  sel_env_num: 15                   # Validation subset size
+  test_env_num: 15                  # Test subset size
+
+env:
+  name: ceramic_capacitors
+  skill_init: train/initial.md
+  split_mode: ratio                 # Auto-partition data_path into train/val/test splits
+  split_ratio: "6:2:2"              # 60% train, 20% validation, 20% test
+  split_seed: 42
+  data_path: train/ceramic_capacitors.json
+  max_turns: 1
+  max_completion_tokens: 4096
+  workers: 8                        # Parallel rollout workers

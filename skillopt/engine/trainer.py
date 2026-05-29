@@ -268,27 +268,27 @@ def _redact_cfg(cfg: dict) -> dict:
 def _load_history(out_root: str) -> list[dict]:
     path = os.path.join(out_root, "history.json")
     if os.path.exists(path):
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     return []
 
 
 def _save_history(out_root: str, history: list[dict]) -> None:
     path = os.path.join(out_root, "history.json")
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
 
 def _save_skill(out_root: str, step: int, content: str) -> None:
     skills_dir = os.path.join(out_root, "skills")
     os.makedirs(skills_dir, exist_ok=True)
-    with open(os.path.join(skills_dir, f"skill_v{step:04d}.md"), "w") as f:
+    with open(os.path.join(skills_dir, f"skill_v{step:04d}.md"), "w", encoding="utf-8") as f:
         f.write(content)
 
 
 def _load_skill(out_root: str, step: int) -> str:
     path = os.path.join(out_root, "skills", f"skill_v{step:04d}.md")
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -301,7 +301,7 @@ def _load_meta_skill_content(out_root: str, epoch: int) -> str:
     if not os.path.exists(path):
         return ""
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             result = json.load(f)
         return str(result.get("meta_skill_content", "")).strip()
     except Exception:
@@ -313,7 +313,7 @@ def _load_runtime_state(out_root: str) -> dict | None:
     if not os.path.exists(path):
         return None
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             state = json.load(f)
         return state if isinstance(state, dict) else None
     except Exception:
@@ -322,7 +322,7 @@ def _load_runtime_state(out_root: str) -> dict | None:
 
 def _save_runtime_state(out_root: str, state: dict) -> None:
     path = os.path.join(out_root, "runtime_state.json")
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
 
 
@@ -417,7 +417,7 @@ def _extract_failure_patterns(
                 continue
             seen_patch_files.add(fname)
             try:
-                with open(fname) as f:
+                with open(fname, encoding="utf-8") as f:
                     patch = json.load(f)
                 for fs in patch.get("failure_summary", []):
                     ft = fs.get("failure_type", "")
@@ -475,7 +475,7 @@ def _format_step_buffer(buffer: list[dict]) -> str:
             score_before = entry.get("score_before", "?")
             score_after = entry.get("score_after", "?")
             parts.append(
-                f"  Rejected edits (score {score_before} → {score_after}):"
+                f"  Rejected edits (score {score_before} -> {score_after}):"
             )
             for i, e in enumerate(rejected, 1):
                 if e.get("op") is not None:
@@ -483,14 +483,14 @@ def _format_step_buffer(buffer: list[dict]) -> str:
                     content = e.get("content", "")
                     target = e.get("target", "")
                     if target:
-                        parts.append(f'    {i}. [{op}] target="{target[:80]}" → "{content}"')
+                        parts.append(f'    {i}. [{op}] target="{target[:80]}" -> "{content}"')
                     else:
                         parts.append(f'    {i}. [{op}] "{content}"')
                 else:
                     kind = e.get("type", "?")
                     title = e.get("title", "")
                     instruction = e.get("instruction", "")
-                    parts.append(f'    {i}. [{kind}] "{title}" → "{instruction}"')
+                    parts.append(f'    {i}. [{kind}] "{title}" -> "{instruction}"')
 
     return "\n".join(parts)
 
@@ -665,7 +665,7 @@ class ReflACTTrainer:
         # ── Load initial skill ───────────────────────────────────────────
         skill_init_path = os.path.abspath(cfg["skill_init"])
         if os.path.exists(skill_init_path):
-            with open(skill_init_path) as f:
+            with open(skill_init_path, encoding="utf-8") as f:
                 skill_init = f.read()
             print(f"  [initial skill] {skill_init_path} ({len(skill_init)} chars)")
         else:
@@ -757,13 +757,13 @@ class ReflACTTrainer:
             current_skill_path = runtime_state.get("current_skill_path") or os.path.join(
                 out_root, "skills", f"skill_v{last_step:04d}.md",
             )
-            with open(current_skill_path) as f:
+            with open(current_skill_path, encoding="utf-8") as f:
                 current_skill = f.read()
             best_skill_path = runtime_state.get("best_skill_path") or os.path.join(
                 out_root, "best_skill.md",
             )
             if os.path.exists(best_skill_path):
-                with open(best_skill_path) as f:
+                with open(best_skill_path, encoding="utf-8") as f:
                     best_skill = f.read()
             else:
                 best_skill = current_skill
@@ -790,7 +790,7 @@ class ReflACTTrainer:
             best_step = best_rec["best_step"]
             best_skill_path = os.path.join(out_root, "best_skill.md")
             if os.path.exists(best_skill_path):
-                with open(best_skill_path) as f:
+                with open(best_skill_path, encoding="utf-8") as f:
                     best_skill = f.read()
             else:
                 best_skill = _load_skill(out_root, best_step)
@@ -1612,10 +1612,10 @@ class ReflACTTrainer:
                         )
 
                     # 5. Save
-                    with open(slow_done_path, "w") as f:
+                    with open(slow_done_path, "w", encoding="utf-8") as f:
                         json.dump(slow_result, f, indent=2, ensure_ascii=False)
                     _save_skill(out_root, global_step, current_skill)
-                    with open(os.path.join(out_root, "best_skill.md"), "w") as f:
+                    with open(os.path.join(out_root, "best_skill.md"), "w", encoding="utf-8") as f:
                         f.write(best_skill)
                     _persist_runtime_state(global_step)
 
@@ -1634,7 +1634,7 @@ class ReflACTTrainer:
                 if os.path.exists(meta_skill_done_path):
                     print(f"\n  [META SKILL epoch {epoch}] resumed — already done")
                 elif epoch == 1:
-                    with open(meta_skill_done_path, "w") as f:
+                    with open(meta_skill_done_path, "w", encoding="utf-8") as f:
                         json.dump(
                             {"action": "skip_first_epoch", "epoch": epoch},
                             f, indent=2, ensure_ascii=False,
@@ -1734,11 +1734,11 @@ class ReflACTTrainer:
                         meta_skill_result["action"] = "no_content"
                         print(f"    [meta skill] no memory produced, {meta_skill_time}s")
 
-                    with open(meta_skill_done_path, "w") as f:
+                    with open(meta_skill_done_path, "w", encoding="utf-8") as f:
                         json.dump(meta_skill_result, f, indent=2, ensure_ascii=False)
 
         # ── Save best skill ──────────────────────────────────────────────
-        with open(os.path.join(out_root, "best_skill.md"), "w") as f:
+        with open(os.path.join(out_root, "best_skill.md"), "w", encoding="utf-8") as f:
             f.write(best_skill)
         _persist_runtime_state(global_step)
         print(

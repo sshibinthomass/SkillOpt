@@ -1,5 +1,13 @@
 # SkillOpt: Executive Strategy for Self-Evolving Agent Skills
 
+Run UI: 
+
+```
+.venv\Scripts\python.exe -m skillopt_webui.app --port 7860
+```
+
+http://127.0.0.1:7861/
+
 *Train agent skills like you train neural networks — with epochs, (mini-)batchsize, learning rates, and validation gates — but without touching model weights.*
 
 [![Project Page](https://img.shields.io/badge/Project%20Page-SkillOpt-8dbb3c)](https://microsoft.github.io/SkillOpt/) [![Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b)](https://arxiv.org/abs/2605.23904) [![Project Video](https://img.shields.io/badge/Project%20Video-Watch%20Demo-ff0000)](https://youtu.be/JUBMDTCiM0M) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -37,6 +45,7 @@ source .env
 ```
 
 **Azure OpenAI** (recommended):
+
 ```bash
 export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
 # Option 1: API key auth
@@ -48,16 +57,19 @@ export AZURE_OPENAI_AUTH_MODE="azure_cli"
 > **Note:** `AZURE_OPENAI_ENDPOINT` is always required. Without it, all LLM calls will fail.
 
 **OpenAI** directly:
+
 ```bash
 export OPENAI_API_KEY="sk-..."
 ```
 
 **Anthropic Claude**:
+
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
 **Qwen (local vLLM)**:
+
 ```bash
 export QWEN_CHAT_BASE_URL="http://localhost:8000/v1"
 export QWEN_CHAT_MODEL="Qwen/Qwen3.5-4B"
@@ -95,14 +107,14 @@ See `skillopt/envs/<benchmark>/dataloader.py` for the exact format each benchmar
 
 ### Supported Benchmarks
 
-| Benchmark | Type | Config |
-|---|---|---|
-| SearchQA | QA | `configs/searchqa/default.yaml` |
-| ALFWorld | Embodied agent | `configs/alfworld/default.yaml` |
-| DocVQA | Document QA | `configs/docvqa/default.yaml` |
-| LiveMathematicianBench | Math | `configs/livemathematicianbench/default.yaml` |
-| SpreadsheetBench | Code generation | `configs/spreadsheetbench/default.yaml` |
-| OfficeQA | Tool-augmented QA | `configs/officeqa/default.yaml` |
+| Benchmark              | Type              | Config                                          |
+| ---------------------- | ----------------- | ----------------------------------------------- |
+| SearchQA               | QA                | `configs/searchqa/default.yaml`               |
+| ALFWorld               | Embodied agent    | `configs/alfworld/default.yaml`               |
+| DocVQA                 | Document QA       | `configs/docvqa/default.yaml`                 |
+| LiveMathematicianBench | Math              | `configs/livemathematicianbench/default.yaml` |
+| SpreadsheetBench       | Code generation   | `configs/spreadsheetbench/default.yaml`       |
+| OfficeQA               | Tool-augmented QA | `configs/officeqa/default.yaml`               |
 
 ---
 
@@ -138,17 +150,17 @@ python scripts/train.py \
 
 Key CLI arguments:
 
-| Argument | Description | Example |
-|---|---|---|
-| `--config` | Benchmark config YAML | `configs/searchqa/default.yaml` |
-| `--split_dir` | Path to data split directory | `/path/to/split` |
-| `--azure_openai_endpoint` | Azure OpenAI endpoint URL | `https://your-resource.openai.azure.com/` |
-| `--optimizer_model` | Optimizer model deployment name | `gpt-5.5` |
-| `--target_model` | Target model deployment name | `gpt-5.5` |
-| `--num_epochs` | Number of training epochs | `4` |
-| `--batch_size` | Batch size per step | `40` |
-| `--workers` | Parallel rollout workers | `8` |
-| `--out_root` | Output directory | `outputs/my_run` |
+| Argument                    | Description                     | Example                                     |
+| --------------------------- | ------------------------------- | ------------------------------------------- |
+| `--config`                | Benchmark config YAML           | `configs/searchqa/default.yaml`           |
+| `--split_dir`             | Path to data split directory    | `/path/to/split`                          |
+| `--azure_openai_endpoint` | Azure OpenAI endpoint URL       | `https://your-resource.openai.azure.com/` |
+| `--optimizer_model`       | Optimizer model deployment name | `gpt-5.5`                                 |
+| `--target_model`          | Target model deployment name    | `gpt-5.5`                                 |
+| `--num_epochs`            | Number of training epochs       | `4`                                       |
+| `--batch_size`            | Batch size per step             | `40`                                      |
+| `--workers`               | Parallel rollout workers        | `8`                                       |
+| `--out_root`              | Output directory                | `outputs/my_run`                          |
 
 ### Eval Only
 
@@ -172,12 +184,12 @@ python scripts/eval_only.py \
   --azure_openai_endpoint https://your-resource.openai.azure.com/
 ```
 
-| Split | Description |
-|---|---|
-| `valid_unseen` | Test set |
-| `valid_seen` | Validation set |
-| `train` | Training set |
-| `all` | All splits combined (default) |
+| Split            | Description                   |
+| ---------------- | ----------------------------- |
+| `valid_unseen` | Test set                      |
+| `valid_seen`   | Validation set                |
+| `train`        | Training set                  |
+| `all`          | All splits combined (default) |
 
 ### Output Structure
 
@@ -208,11 +220,11 @@ pip install -e ".[webui]"
 python -m skillopt_webui.app
 ```
 
-| Flag | Default | Description |
-|---|---|---|
-| `--port` | 7860 | Server port |
-| `--host` | `0.0.0.0` | Bind address |
-| `--share` | off | Create a public Gradio share link |
+| Flag        | Default     | Description                       |
+| ----------- | ----------- | --------------------------------- |
+| `--port`  | 7860        | Server port                       |
+| `--host`  | `0.0.0.0` | Bind address                      |
+| `--share` | off         | Create a public Gradio share link |
 
 ```bash
 # With public share link (useful for remote servers)
@@ -234,4 +246,3 @@ python -m skillopt_webui.app --share
       url={https://arxiv.org/abs/2605.23904}
 }
 ```
-
