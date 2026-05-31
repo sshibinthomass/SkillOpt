@@ -1,12 +1,15 @@
 # SkillOpt: Executive Strategy for Self-Evolving Agent Skills
 
-Run UI: 
+Run UI:
 
 ```
 .venv\Scripts\python.exe -m skillopt_webui.app --port 7860
 ```
 
-http://127.0.0.1:7861/
+http://127.0.0.1:7860/
+
+
+*.venv\Scripts\python.exe train\flask\app.py*
 
 *Train agent skills like you train neural networks — with epochs, (mini-)batchsize, learning rates, and validation gates — but without touching model weights.*
 

@@ -8,7 +8,7 @@ train:
   train_size: 0
   batch_size: 30
   accumulation: 1
-  num_epochs: 6
+  num_epochs: 4
   seed: 42
 gradient:
   minibatch_size: 4
@@ -16,22 +16,22 @@ gradient:
   analyst_workers: 4
   failure_only: true
 optimizer:
-  learning_rate: 3
+  learning_rate: 4
   skill_update_mode: patch
   lr_scheduler: cosine
   use_slow_update: true
   use_meta_skill: true
 evaluation:
   use_gate: true
-  sel_env_num: 35
-  test_env_num: 35
+  sel_env_num: 100
+  test_env_num: 113
 env:
   name: generic_csv
-  skill_init: train/mpn_initial.md
+  skill_init: train/ceramic_capacitor_initial.md
   split_mode: ratio
   split_ratio: '6:2:2'
   split_seed: 42
-  data_path: train/mpn.json
+  data_path: train/ceramic_capacitor.json
   max_turns: 1
   max_completion_tokens: 4096
-  workers: 12
+  workers: 20

@@ -110,7 +110,7 @@ class SpreadsheetBenchAdapter(EnvAdapter):
         # Resume support
         if os.path.exists(results_path):
             existing: list[dict] = []
-            with open(results_path) as f:
+            with open(results_path, encoding="utf-8") as f:
                 for line in f:
                     try:
                         existing.append(json.loads(line))
@@ -150,7 +150,7 @@ class SpreadsheetBenchAdapter(EnvAdapter):
                 diagnostic_trace_context_by_id=kwargs.get("diagnostic_trace_context_by_id"),
             )
 
-        with open(results_path, "w") as f:
+        with open(results_path, "w", encoding="utf-8") as f:
             for r in results:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
